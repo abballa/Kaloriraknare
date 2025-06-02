@@ -1,0 +1,91 @@
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaloriräknare</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        h1 { text-align: center; }
+        input, button, select { margin: 5px 0; padding: 10px; width: 100%; box-sizing: border-box; }
+        .meal-list { margin-top: 20px; }
+        .meal-list ul { padding-left: 20px; }
+        .meal-list li { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .total { font-weight: bold; margin-top: 10px; }
+        .remove-btn { margin-left: 10px; background-color: red; color: white; border: none; padding: 4px 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🍽️ Kaloriräknare</h1>
+
+    <label for="date">Välj datum:</label>
+    <input type="date" id="date">
+
+    <label for="calories">Lägg till kalorier:</label>
+    <input type="number" id="calories" placeholder="t.ex. 500 kcal">
+    <button onclick="addMeal()">Lägg till måltid</button>
+
+    <div class="meal-list">
+        <h2>Måltider för dagen</h2>
+        <ul id="mealList"></ul>
+        <div class="total" id="totalCalories">Totalt: 0 kcal</div>
+    </div>
+
+    <script>
+        const mealList = document.getElementById("mealList");
+        const totalCaloriesEl = document.getElementById("totalCalories");
+        const caloriesInput = document.getElementById("calories");
+        const dateInput = document.getElementById("date");
+
+        function loadMeals() {
+            mealList.innerHTML = "";
+            let date = dateInput.value;
+            if (!date) return;
+
+            let data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            let meals = data[date] || [];
+            let total = 0;
+
+            meals.forEach((meal, index) => {
+                let li = document.createElement("li");
+                li.innerHTML = `<span>${meal} kcal</span> <button class="remove-btn" onclick="removeMeal(${index})">Ta bort</button>`;
+                mealList.appendChild(li);
+                total += meal;
+            });
+
+            totalCaloriesEl.textContent = `Totalt: ${total} kcal`;
+        }
+
+        function addMeal() {
+            let kcal = parseInt(caloriesInput.value);
+            let date = dateInput.value;
+            if (!kcal || !date) return;
+
+            let data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            if (!data[date]) data[date] = [];
+            data[date].push(kcal);
+            localStorage.setItem("caloriesData", JSON.stringify(data));
+
+            caloriesInput.value = "";
+            loadMeals();
+        }
+
+        function removeMeal(index) {
+            let date = dateInput.value;
+            let data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            if (!data[date]) return;
+            data[date].splice(index, 1);
+            localStorage.setItem("caloriesData", JSON.stringify(data));
+            loadMeals();
+        }
+
+        dateInput.addEventListener("change", loadMeals);
+        window.addEventListener("load", () => {
+            const today = new Date().toISOString().split("T")[0];
+            dateInput.value = today;
+            loadMeals();
+        });
+    </script>
+</body>
+</html>
