@@ -6,14 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kaloriräknare</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; }
         h1 { text-align: center; }
-        input, button, select { margin: 5px 0; padding: 10px; width: 100%; box-sizing: border-box; }
-        .meal-list { margin-top: 20px; }
-        .meal-list ul { padding-left: 20px; }
-        .meal-list li { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-        .total { font-weight: bold; margin-top: 10px; }
+        input, select, button { margin: 5px 0; padding: 10px; width: 100%; box-sizing: border-box; }
+        .meal-list ul { padding-left: 0; list-style: none; }
+        .meal-list li { display: flex; justify-content: space-between; margin-bottom: 5px; }
         .remove-btn { margin-left: 10px; background-color: red; color: white; border: none; padding: 4px 8px; cursor: pointer; }
+        .total { font-weight: bold; margin-top: 10px; }
+        .week-summary { margin-top: 30px; }
+        .week-summary h2 { margin-bottom: 5px; }
+        .week-summary ul { list-style: none; padding-left: 0; }
+        .week-summary li { margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -22,14 +25,27 @@
     <label for="date">Välj datum:</label>
     <input type="date" id="date">
 
-    <label for="calories">Lägg till kalorier:</label>
+    <label for="mealType">Måltidstyp:</label>
+    <select id="mealType">
+        <option value="Frukost">Frukost</option>
+        <option value="Lunch">Lunch</option>
+        <option value="Middag">Middag</option>
+        <option value="Mellanmål">Mellanmål</option>
+    </select>
+
+    <label for="calories">Kalorier:</label>
     <input type="number" id="calories" placeholder="t.ex. 500 kcal">
     <button onclick="addMeal()">Lägg till måltid</button>
 
     <div class="meal-list">
-        <h2>Måltider för dagen</h2>
+        <h2>Dagens måltider</h2>
         <ul id="mealList"></ul>
         <div class="total" id="totalCalories">Totalt: 0 kcal</div>
+    </div>
+
+    <div class="week-summary">
+        <h2>Veckoöversikt (mån–sön)</h2>
+        <ul id="weekSummary"></ul>
     </div>
 
     <script>
@@ -37,34 +53,38 @@
         const totalCaloriesEl = document.getElementById("totalCalories");
         const caloriesInput = document.getElementById("calories");
         const dateInput = document.getElementById("date");
+        const mealTypeInput = document.getElementById("mealType");
+        const weekSummary = document.getElementById("weekSummary");
 
         function loadMeals() {
             mealList.innerHTML = "";
-            let date = dateInput.value;
+            const date = dateInput.value;
             if (!date) return;
 
-            let data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
-            let meals = data[date] || [];
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            const meals = data[date] || [];
             let total = 0;
 
             meals.forEach((meal, index) => {
-                let li = document.createElement("li");
-                li.innerHTML = `<span>${meal} kcal</span> <button class="remove-btn" onclick="removeMeal(${index})">Ta bort</button>`;
+                const li = document.createElement("li");
+                li.innerHTML = `<span>${meal.type}: ${meal.kcal} kcal</span> <button class="remove-btn" onclick="removeMeal(${index})">Ta bort</button>`;
                 mealList.appendChild(li);
-                total += meal;
+                total += meal.kcal;
             });
 
             totalCaloriesEl.textContent = `Totalt: ${total} kcal`;
+            updateWeekSummary();
         }
 
         function addMeal() {
-            let kcal = parseInt(caloriesInput.value);
-            let date = dateInput.value;
+            const kcal = parseInt(caloriesInput.value);
+            const date = dateInput.value;
+            const type = mealTypeInput.value;
             if (!kcal || !date) return;
 
-            let data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
             if (!data[date]) data[date] = [];
-            data[date].push(kcal);
+            data[date].push({ type, kcal });
             localStorage.setItem("caloriesData", JSON.stringify(data));
 
             caloriesInput.value = "";
@@ -72,12 +92,38 @@
         }
 
         function removeMeal(index) {
-            let date = dateInput.value;
-            let data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            const date = dateInput.value;
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
             if (!data[date]) return;
             data[date].splice(index, 1);
             localStorage.setItem("caloriesData", JSON.stringify(data));
             loadMeals();
+        }
+
+        function updateWeekSummary() {
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            const selectedDate = new Date(dateInput.value);
+            const week = getWeekRange(selectedDate);
+            weekSummary.innerHTML = "";
+
+            for (let d = new Date(week.start); d <= week.end; d.setDate(d.getDate() + 1)) {
+                const dayStr = d.toISOString().split("T")[0];
+                const meals = data[dayStr] || [];
+                const total = meals.reduce((sum, m) => sum + m.kcal, 0);
+                const li = document.createElement("li");
+                li.textContent = `${dayStr} – ${total} kcal`;
+                weekSummary.appendChild(li);
+            }
+        }
+
+        function getWeekRange(date) {
+            const day = date.getDay();
+            const diffToMonday = (day === 0 ? -6 : 1) - day;
+            const monday = new Date(date);
+            monday.setDate(date.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            return { start: monday, end: sunday };
         }
 
         dateInput.addEventListener("change", loadMeals);
