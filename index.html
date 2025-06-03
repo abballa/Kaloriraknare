@@ -2,183 +2,136 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kaloriräknare + Livsmedel + Proxy</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; }
-    input, select, button { margin: 5px 0; padding: 10px; width: 100%; box-sizing: border-box; }
-    .meal-list ul, .week-summary ul { padding-left: 0; list-style: none; }
-    .meal-list li, .week-summary li { display: flex; justify-content: space-between; margin-bottom: 5px; }
-    .remove-btn { margin-left: 10px; background-color: red; color: white; border: none; padding: 4px 8px; cursor: pointer; }
-    .total { font-weight: bold; margin-top: 10px; }
-    .result-item { border: 1px solid #ccc; padding: 10px; margin-top: 5px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaloriräknare</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 700px; margin: auto; }
+        h1 { text-align: center; }
+        input, select, button { margin: 5px 0; padding: 10px; width: 100%; box-sizing: border-box; }
+        .meal-list ul { padding-left: 0; list-style: none; }
+        .meal-list li { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .remove-btn { margin-left: 10px; background-color: red; color: white; border: none; padding: 4px 8px; cursor: pointer; }
+        .total { font-weight: bold; margin-top: 10px; }
+        .week-summary { margin-top: 30px; }
+        .week-summary h2 { margin-bottom: 5px; }
+        .week-summary ul { list-style: none; padding-left: 0; }
+        .week-summary li { margin-bottom: 4px; }
+    </style>
 </head>
 <body>
-  <h1>🍽️ Kaloriräknare</h1>
+    <h1>🍽️ Kaloriräknare</h1>
 
-  <label for="date">Välj datum:</label>
-  <input type="date" id="date" />
+    <label for="date">Välj datum:</label>
+    <input type="date" id="date">
 
-  <label for="mealType">Måltidstyp:</label>
-  <select id="mealType">
-    <option value="Frukost">Frukost</option>
-    <option value="Lunch">Lunch</option>
-    <option value="Middag">Middag</option>
-    <option value="Mellanmål">Mellanmål</option>
-  </select>
+    <label for="mealType">Måltidstyp:</label>
+    <select id="mealType">
+        <option value="Frukost">Frukost</option>
+        <option value="Lunch">Lunch</option>
+        <option value="Middag">Middag</option>
+        <option value="Mellanmål">Mellanmål</option>
+    </select>
 
-  <div class="meal-list">
-    <h2>Dagens näringsintag</h2>
-    <ul id="mealList"></ul>
-    <div class="total" id="totalNutrients"></div>
-  </div>
+    <label for="calories">Kalorier:</label>
+    <input type="number" id="calories" placeholder="t.ex. 500 kcal">
+    <button onclick="addMeal()">Lägg till måltid</button>
 
-  <div class="week-summary">
-    <h2>Veckoöversikt (mån–sön)</h2>
-    <ul id="weekSummary"></ul>
-  </div>
+    <div class="meal-list">
+        <h2>Dagens måltider</h2>
+        <ul id="mealList"></ul>
+        <div class="total" id="totalCalories">Totalt: 0 kcal</div>
+    </div>
 
-  <div class="search-section">
-    <h2>🔍 Sök livsmedel</h2>
-    <input type="text" id="searchInput" placeholder="Skriv t.ex. 'banan'" />
-    <button onclick="searchFood()">Sök</button>
-    <div id="searchResults"></div>
-  </div>
+    <div class="week-summary">
+        <h2>Veckoöversikt (mån–sön)</h2>
+        <ul id="weekSummary"></ul>
+    </div>
 
-  <script>
-    const dateInput = document.getElementById("date");
-    const mealTypeInput = document.getElementById("mealType");
-    const mealList = document.getElementById("mealList");
-    const totalNutrients = document.getElementById("totalNutrients");
-    const searchInput = document.getElementById("searchInput");
-    const searchResults = document.getElementById("searchResults");
-    const weekSummary = document.getElementById("weekSummary");
+    <script>
+        const mealList = document.getElementById("mealList");
+        const totalCaloriesEl = document.getElementById("totalCalories");
+        const caloriesInput = document.getElementById("calories");
+        const dateInput = document.getElementById("date");
+        const mealTypeInput = document.getElementById("mealType");
+        const weekSummary = document.getElementById("weekSummary");
 
-    function loadMeals() {
-      const date = dateInput.value;
-      const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
-      const meals = data[date] || [];
-      mealList.innerHTML = "";
-      let totals = { kcal: 0, fett: 0, kolhydrater: 0, socker: 0, protein: 0 };
+        function loadMeals() {
+            mealList.innerHTML = "";
+            const date = dateInput.value;
+            if (!date) return;
 
-      meals.forEach((meal, index) => {
-        const li = document.createElement("li");
-        li.innerHTML = `${meal.type}: ${meal.kcal.toFixed(1)} kcal, Fett: ${meal.fett.toFixed(1)}g, Kolh: ${meal.kolhydrater.toFixed(1)}g, Socker: ${meal.socker.toFixed(1)}g, Prot: ${meal.protein.toFixed(1)}g <button class="remove-btn" onclick="removeMeal(${index})">Ta bort</button>`;
-        mealList.appendChild(li);
-        totals.kcal += meal.kcal;
-        totals.fett += meal.fett;
-        totals.kolhydrater += meal.kolhydrater;
-        totals.socker += meal.socker;
-        totals.protein += meal.protein;
-      });
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            const meals = data[date] || [];
+            let total = 0;
 
-      totalNutrients.textContent = `Totalt: ${totals.kcal.toFixed(1)} kcal | Fett: ${totals.fett.toFixed(1)}g | Kolhydrater: ${totals.kolhydrater.toFixed(1)}g | Socker: ${totals.socker.toFixed(1)}g | Protein: ${totals.protein.toFixed(1)}g`;
-      updateWeekSummary();
-    }
+            meals.forEach((meal, index) => {
+                const li = document.createElement("li");
+                li.innerHTML = `<span>${meal.type}: ${meal.kcal} kcal</span> <button class="remove-btn" onclick="removeMeal(${index})">Ta bort</button>`;
+                mealList.appendChild(li);
+                total += meal.kcal;
+            });
 
-    function removeMeal(index) {
-      const date = dateInput.value;
-      const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
-      data[date].splice(index, 1);
-      localStorage.setItem("caloriesData", JSON.stringify(data));
-      loadMeals();
-    }
-
-    function updateWeekSummary() {
-      const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
-      const selectedDate = new Date(dateInput.value);
-      const week = getWeekRange(selectedDate);
-      weekSummary.innerHTML = "";
-
-      for (let d = new Date(week.start); d <= week.end; d.setDate(d.getDate() + 1)) {
-        const key = d.toISOString().split("T")[0];
-        const meals = data[key] || [];
-        const total = meals.reduce((sum, m) => sum + m.kcal, 0);
-        const li = document.createElement("li");
-        li.textContent = `${key} – ${total.toFixed(1)} kcal`;
-        weekSummary.appendChild(li);
-      }
-    }
-
-    function getWeekRange(date) {
-      const day = date.getDay();
-      const diffToMonday = (day === 0 ? -6 : 1) - day;
-      const monday = new Date(date);
-      monday.setDate(date.getDate() + diffToMonday);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      return { start: monday, end: sunday };
-    }
-
-    async function searchFood() {
-      const term = searchInput.value.trim();
-      if (!term) return;
-      searchResults.innerHTML = "Söker...";
-
-      try {
-        const res = await fetch(`https://corsproxy.io/?https://dataportal.livsmedelsverket.se/api/v1/livsmedel?namn=${encodeURIComponent(term)}`);
-        const items = await res.json();
-        searchResults.innerHTML = "";
-
-        for (const item of items) {
-          const res2 = await fetch(`https://corsproxy.io/?https://dataportal.livsmedelsverket.se/api/v1/livsmedel/${item.nummer}`);
-          const food = await res2.json();
-          const n = food.naringsvarden;
-
-          const energi = parseFloat(n.find(v => v.namn === "Energi (kcal)")?.varde || 0);
-          const fett = parseFloat(n.find(v => v.namn === "Fett")?.varde || 0);
-          const kolh = parseFloat(n.find(v => v.namn === "Kolhydrater")?.varde || 0);
-          const socker = parseFloat(n.find(v => v.namn === "Sockerarter")?.varde || 0);
-          const protein = parseFloat(n.find(v => v.namn === "Protein")?.varde || 0);
-
-          const div = document.createElement("div");
-          div.className = "result-item";
-          div.innerHTML = `
-            <strong>${food.namn}</strong><br>
-            Kalorier: ${energi} kcal / 100g<br>
-            Fett: ${fett}g, Kolhydrater: ${kolh}g, Sockerarter: ${socker}g, Protein: ${protein}g<br>
-            <input type="number" placeholder="Gram" id="gram-${item.nummer}" />
-            <button onclick="addFoodFromAPI('${item.nummer}', ${energi}, ${fett}, ${kolh}, ${socker}, ${protein})">Lägg till</button>`;
-          searchResults.appendChild(div);
+            totalCaloriesEl.textContent = `Totalt: ${total} kcal`;
+            updateWeekSummary();
         }
-      } catch (e) {
-        searchResults.innerHTML = "Fel vid hämtning.";
-      }
-    }
 
-    function addFoodFromAPI(nummer, energi, fett, kolh, socker, protein) {
-      const gramInput = document.getElementById("gram-" + nummer);
-      const gram = parseFloat(gramInput.value);
-      if (isNaN(gram) || gram <= 0) return;
+        function addMeal() {
+            const kcal = parseInt(caloriesInput.value);
+            const date = dateInput.value;
+            const type = mealTypeInput.value;
+            if (!kcal || !date) return;
 
-      const factor = gram / 100;
-      const entry = {
-        type: mealTypeInput.value,
-        kcal: energi * factor,
-        fett: fett * factor,
-        kolhydrater: kolh * factor,
-        socker: socker * factor,
-        protein: protein * factor
-      };
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            if (!data[date]) data[date] = [];
+            data[date].push({ type, kcal });
+            localStorage.setItem("caloriesData", JSON.stringify(data));
 
-      const date = dateInput.value;
-      const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
-      if (!data[date]) data[date] = [];
-      data[date].push(entry);
-      localStorage.setItem("caloriesData", JSON.stringify(data));
+            caloriesInput.value = "";
+            loadMeals();
+        }
 
-      loadMeals();
-    }
+        function removeMeal(index) {
+            const date = dateInput.value;
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            if (!data[date]) return;
+            data[date].splice(index, 1);
+            localStorage.setItem("caloriesData", JSON.stringify(data));
+            loadMeals();
+        }
 
-    window.addEventListener("load", () => {
-      const today = new Date().toISOString().split("T")[0];
-      dateInput.value = today;
-      loadMeals();
-    });
+        function updateWeekSummary() {
+            const data = JSON.parse(localStorage.getItem("caloriesData") || "{}");
+            const selectedDate = new Date(dateInput.value);
+            const week = getWeekRange(selectedDate);
+            weekSummary.innerHTML = "";
 
-    dateInput.addEventListener("change", loadMeals);
-  </script>
+            for (let d = new Date(week.start); d <= week.end; d.setDate(d.getDate() + 1)) {
+                const dayStr = d.toISOString().split("T")[0];
+                const meals = data[dayStr] || [];
+                const total = meals.reduce((sum, m) => sum + m.kcal, 0);
+                const li = document.createElement("li");
+                li.textContent = `${dayStr} – ${total} kcal`;
+                weekSummary.appendChild(li);
+            }
+        }
+
+        function getWeekRange(date) {
+            const day = date.getDay();
+            const diffToMonday = (day === 0 ? -6 : 1) - day;
+            const monday = new Date(date);
+            monday.setDate(date.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            return { start: monday, end: sunday };
+        }
+
+        dateInput.addEventListener("change", loadMeals);
+        window.addEventListener("load", () => {
+            const today = new Date().toISOString().split("T")[0];
+            dateInput.value = today;
+            loadMeals();
+        });
+    </script>
 </body>
 </html>
